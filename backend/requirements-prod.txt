@@ -1,0 +1,14 @@
+# Production extras for the VELTRIX demo backend.
+# Install with:  pip install -r requirements-prod.txt
+#
+# Local development only needs requirements.txt. These extras provide a real
+# WSGI server and a server-grade database driver for a hosted deployment.
+-r requirements.txt
+
+# WSGI server. gunicorn is Linux/macOS; waitress also runs on Windows.
+gunicorn==23.0.0
+waitress==3.0.2
+
+# PostgreSQL driver for hosted deployments. SQLite (local default) needs no
+# extra driver. Keep in sync with DATABASE_URL.
+psycopg[binary]==3.2.3

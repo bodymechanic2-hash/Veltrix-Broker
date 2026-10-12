@@ -62,6 +62,7 @@ class LoginForm(FlaskForm):
 
 class TradeForm(FlaskForm):
     instrument_id = HiddenField("Instrument", validators=[DataRequired()])
+    submission_id = HiddenField("Submission token")
     side = SelectField("Side", choices=[("buy", "Buy"), ("sell", "Sell")], validators=[DataRequired()])
     quantity = StringField("Quantity", validators=[DataRequired(message="Enter a quantity.")])
     submit = SubmitField("Review simulation")
@@ -102,6 +103,7 @@ class AdminSupportForm(FlaskForm):
 
 
 class TopUpForm(FlaskForm):
+    submission_id = HiddenField("Submission token")
     amount = DecimalField(
         "Amount",
         places=2,

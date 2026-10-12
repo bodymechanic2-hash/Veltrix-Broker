@@ -1,0 +1,34 @@
+# Example Render blueprint for the VELTRIX demo backend.
+#
+# This deploys ONLY the Flask backend as a separate service (GitHub Pages keeps
+# serving the static site). It has NOT been deployed by this repository — it is
+# a documented, working starting point.
+#
+# After deploying, set the "veltrix-app-url" meta tag in the root index.html to
+# this service's URL and add that Pages origin to CORS_ORIGINS.
+services:
+  - type: web
+    name: veltrix-demo
+    runtime: python
+    rootDir: backend
+    plan: free
+    buildCommand: pip install -r requirements-prod.txt
+    startCommand: gunicorn wsgi:app --bind 0.0.0.0:$PORT --workers 2 --timeout 60
+    healthCheckPath: /health
+    envVars:
+      - key: FLASK_ENV
+        value: production
+      - key: SECRET_KEY
+        generateValue: true
+      - key: SESSION_COOKIE_SECURE
+        value: "1"
+      - key: CORS_ORIGINS
+        value: https://your-github-pages-origin.example
+      - key: DATABASE_URL
+        fromDatabase:
+          name: veltrix-db
+          property: connectionString
+
+databases:
+  - name: veltrix-db
+    plan: free

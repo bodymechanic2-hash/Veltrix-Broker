@@ -6,6 +6,7 @@ from sqlalchemy import func, or_
 from ..extensions import db
 from ..forms import TradeForm, WatchlistForm
 from ..models import Instrument, WatchlistItem
+from ..tokens import issue_token
 
 bp = Blueprint("markets", __name__, url_prefix="/markets")
 
@@ -64,11 +65,15 @@ def detail(symbol: str):
     instrument = Instrument.query.filter_by(symbol=symbol.upper(), is_active=True).first()
     if instrument is None:
         abort(404)
+    form = TradeForm(instrument_id=instrument.id)
+    if current_user.is_authenticated:
+        # One-time token so a double-submit cannot place the same order twice.
+        form.submission_id.data = issue_token("trade")
     return render_template(
         "markets/detail.html",
         instrument=instrument,
         watchlist=_watchlist_symbols(),
-        form=TradeForm(instrument_id=instrument.id),
+        form=form,
     )
 
 

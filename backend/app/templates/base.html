@@ -5,6 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="theme-color" content="#08110f">
   <meta name="csrf-token" content="{{ csrf_token() }}">
+  <link rel="icon" href="{{ url_for('static', filename='favicon.svg') }}" type="image/svg+xml">
   <title>{% block title %}VELTRIX — Demo Trading Platform{% endblock %}</title>
   <meta name="description" content="VELTRIX demonstration platform. Simulated markets, paper trading and demo accounts.">
   <link rel="preconnect" href="https://fonts.googleapis.com">

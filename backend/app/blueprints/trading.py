@@ -13,6 +13,7 @@ from sqlalchemy import desc
 from ..extensions import db
 from ..forms import TopUpForm, TradeForm
 from ..models import Instrument, Position, Transaction, money, quantity
+from ..tokens import consume_token, issue_token
 
 bp = Blueprint("trading", __name__)
 
@@ -38,6 +39,15 @@ def trade():
             error for errors in form.errors.values() for error in errors
         ) or "Could not process the simulated order."
         flash(message, "error")
+        return redirect(request.referrer or url_for("markets.index"))
+
+    # Reject a replayed submission (e.g. a double-click) before changing state.
+    if not consume_token("trade", form.submission_id.data):
+        flash(
+            "This simulated order was already submitted. Nothing was changed. "
+            "Reload the instrument to place a new order.",
+            "info",
+        )
         return redirect(request.referrer or url_for("markets.index"))
 
     side = form.side.data
@@ -130,7 +140,7 @@ def portfolio():
         total_equity=money(cash + portfolio_value),
         cost_basis=sum((p.cost_basis for p in positions), Decimal("0.00")),
         unrealised=sum((p.unrealised_pnl for p in positions), Decimal("0.00")),
-        topup_form=TopUpForm(),
+        topup_form=TopUpForm(submission_id=issue_token("topup")),
     )
 
 
@@ -152,6 +162,12 @@ def top_up():
     form = TopUpForm()
     account = current_user.account
     if form.validate_on_submit() and account is not None:
+        if not consume_token("topup", form.submission_id.data):
+            flash(
+                "This demo top-up was already submitted. Reload the portfolio to add funds again.",
+                "info",
+            )
+            return redirect(url_for("trading.portfolio"))
         amount = money(form.amount.data)
         try:
             with db.session.begin_nested():

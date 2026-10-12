@@ -14,6 +14,7 @@ from app.models import DemoAccount, Instrument, User, money  # noqa: E402
 from app.seed import seed_instruments  # noqa: E402
 
 CSRF_RE = re.compile(r'name="csrf_token"[^>]*value="([^"]+)"')
+SUBMISSION_RE = re.compile(r'name="submission_id"[^>]*value="([^"]+)"')
 
 PASSWORD = "DemoPass123!"
 
@@ -39,6 +40,16 @@ def get_csrf(client, path="/login"):
     match = CSRF_RE.search(response.get_data(as_text=True))
     assert match, f"No CSRF token found on {path}"
     return match.group(1)
+
+
+def get_tokens(client, path):
+    """Return the CSRF token and one-time submission token rendered on a page."""
+    response = client.get(path)
+    html = response.get_data(as_text=True)
+    csrf = CSRF_RE.search(html)
+    assert csrf, f"No CSRF token found on {path}"
+    submission = SUBMISSION_RE.search(html)
+    return csrf.group(1), (submission.group(1) if submission else None)
 
 
 def register(client, name="Test User", email="test@example.com", password=PASSWORD, agree="y"):

@@ -29,6 +29,9 @@ Veltrix-Broker/
 │   ├── wsgi.py           # production WSGI entry point
 │   ├── config.py         # environment-driven configuration
 │   ├── requirements.txt
+│   ├── requirements-prod.txt   # gunicorn / waitress / psycopg for deployment
+│   ├── Procfile          # process definition for PaaS hosts
+│   ├── render.yaml       # example Render blueprint (backend only)
 │   ├── .env.example
 │   ├── pytest.ini
 │   ├── app/
@@ -36,12 +39,13 @@ Veltrix-Broker/
 │   │   ├── extensions.py # db / login / csrf
 │   │   ├── models.py     # SQLAlchemy models
 │   │   ├── forms.py      # WTForms (server-side validation + CSRF)
+│   │   ├── tokens.py     # one-time submission tokens (anti double-submit)
 │   │   ├── seed.py       # demo instruments + optional dev admin
 │   │   ├── decorators.py # admin_required
 │   │   ├── blueprints/   # auth, main, markets, trading, support, admin, api
 │   │   ├── templates/    # Jinja pages
-│   │   └── static/       # app.css, app.js
-│   ├── tests/            # pytest suite (35 tests)
+│   │   └── static/       # app.css, app.js, favicon.svg
+│   ├── tests/            # pytest suite (40 tests)
 │   └── instance/         # local SQLite DB (git-ignored, created at runtime)
 ```
 
@@ -56,6 +60,8 @@ Veltrix-Broker/
   stocks, crypto, forex, commodities and indices.
 - Watchlist add/remove per user.
 - Simulated buy/sell orders with validation, position tracking and an average-price model.
+- One-time submission tokens on simulated orders and demo top-ups so a double-click cannot
+  place the same order or add the same funds twice.
 - Portfolio with holdings, cost basis and unrealised P/L.
 - Transaction history (side, instrument, quantity, execution price, amount, status, timestamp).
 - Demo top-up that adds **fictional** funds and records an auditable simulated transaction.
@@ -167,16 +173,18 @@ python -m pytest
 **Actual result (this build):**
 
 ```
-35 passed in ~25s
+40 passed in ~22s
 ```
 
 The suite covers: application startup, DB initialisation, registration, duplicate-email
-handling, registration validation, successful/failed login, logout, client-route protection,
-admin-route protection (403 for clients, redirect for anonymous), cross-user data isolation,
-market search and filtering, watchlist add/remove, invalid/insufficient trade inputs, buy/sell
-balance and position accounting, average price, transaction history, demo top-up, support
-request creation and isolation, admin status updates, CSRF rejection, the JSON API and the
-health endpoint.
+handling, registration validation, successful/failed login, logout (and that sign-out clears
+client access), client-route protection (including anonymous POSTs to `/trade` and the
+watchlist), admin-route protection (403 for clients, redirect for anonymous), cross-user data
+isolation, market search and filtering, watchlist add/remove, invalid/insufficient trade inputs,
+buy/sell balance and position accounting, average price, transaction history, demo top-up,
+replayed/invalid order-submission rejection, support request creation and isolation, admin status
+updates, admin pages never exposing password hashes, CSRF rejection, the JSON API and the health
+endpoint.
 
 HTTP smoke test against a running server (`python run.py`):
 
@@ -213,7 +221,16 @@ The two parts deploy independently:
 
 1. **Static concept site** stays on GitHub Pages (as it is today).
 2. **Flask backend** is deployed as a separate service (Render, Railway, Fly.io, a VPS with
-   gunicorn/waitress, etc.). Start it with the WSGI entry point:
+   gunicorn/waitress, etc.). This repository includes deployment helpers so the backend can be
+   hosted on its own:
+
+   - `backend/requirements-prod.txt` — adds `gunicorn`, `waitress` and the `psycopg` PostgreSQL
+     driver on top of the runtime dependencies.
+   - `backend/Procfile` — `web: gunicorn wsgi:app --bind 0.0.0.0:$PORT`.
+   - `backend/render.yaml` — an example Render blueprint (web service + managed Postgres) with
+     `SECRET_KEY` generated, `SESSION_COOKIE_SECURE=1` and a `/health` check.
+
+   Start it with the WSGI entry point:
 
    ```bash
    gunicorn -w 4 -b 0.0.0.0:8000 wsgi:app      # Linux
@@ -251,6 +268,8 @@ The two parts deploy independently:
 - Registration/login return generic errors to avoid account enumeration.
 - Admin routes are authorised on the server (`admin_required`), not merely hidden in the UI.
 - A per-user data boundary prevents reading another user's transactions or support requests.
+- Simulated orders and demo top-ups carry a one-time submission token, so a replayed form
+  (e.g. a double-click) is rejected without changing balances or positions.
 - The admin UI never displays password hashes or other sensitive values.
 - CORS for the JSON API is limited to explicitly configured origins and read-only (`GET`).
 

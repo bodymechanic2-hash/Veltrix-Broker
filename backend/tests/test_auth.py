@@ -118,3 +118,32 @@ def test_admin_pages_never_expose_password_hashes(client, app):
     body = client.get("/admin/users").get_data(as_text=True)
     assert admin.password_hash not in body
     assert "scrypt" not in body and "pbkdf2" not in body
+
+
+def test_logout_clears_client_access(client, app):
+    register(client, email="logout@example.com")
+    assert client.get("/dashboard").status_code == 200
+    logout(client)
+    response = client.get("/dashboard")
+    assert response.status_code == 302
+    assert "/login" in response.headers["Location"]
+
+
+def test_trade_and_watchlist_require_login(client, app):
+    detail = client.get("/markets/AAPL")
+    assert detail.status_code == 200
+    assert "Sign in to trade" in detail.get_data(as_text=True)
+
+    csrf = get_csrf(client, "/login")
+    trade = client.post(
+        "/trade",
+        data={"csrf_token": csrf, "instrument_id": "1", "side": "buy", "quantity": "1"},
+    )
+    assert trade.status_code == 302
+    assert "/login" in trade.headers["Location"]
+
+    watch = client.post(
+        "/markets/watchlist", data={"csrf_token": csrf, "instrument_id": "1"}
+    )
+    assert watch.status_code == 302
+    assert "/login" in watch.headers["Location"]
